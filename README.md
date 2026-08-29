@@ -17,6 +17,8 @@ A multi-user Retrieval-Augmented Generation API built with FastAPI, PostgreSQL/p
 - Docker image, tests, linting, and GitHub Actions CI
 - JWT registration, login, refresh, and profile endpoints
 - Repository and service boundaries for user authentication
+- Authenticated PDF, DOCX, and TXT uploads with content validation
+- User-owned document listing, status, deletion, and reprocessing jobs
 
 Document ingestion, Hugging Face embeddings, retrieval, generation, citations, and conversations are the next implementation milestones.
 
@@ -48,6 +50,17 @@ Open Swagger UI at `http://127.0.0.1:8000/docs`.
 | `POST` | `/api/v1/auth/refresh` | Rotate the token pair |
 | `GET` | `/api/v1/users/me` | Read the current profile |
 | `PATCH` | `/api/v1/users/me` | Update the current profile |
+
+## Document endpoints
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `POST` | `/api/v1/documents/` | Upload a PDF, DOCX, or UTF-8 text document |
+| `GET` | `/api/v1/documents/` | List the current user's documents |
+| `GET` | `/api/v1/documents/{id}` | Read owned document metadata |
+| `GET` | `/api/v1/documents/{id}/status` | Read document and ingestion status |
+| `POST` | `/api/v1/documents/{id}/reprocess` | Queue failed/completed processing again |
+| `DELETE` | `/api/v1/documents/{id}` | Delete the document and stored file |
 
 ## Structure
 

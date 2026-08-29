@@ -5,18 +5,25 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.core.config import settings
 from app.core.db import get_session
 from app.main import app
+from app.models.document import Document, IngestionJob
 from app.models.user import User
 
 
 @pytest.fixture
-async def session() -> AsyncGenerator[AsyncSession, None]:
+async def session(tmp_path) -> AsyncGenerator[AsyncSession, None]:
     engine = create_async_engine("sqlite+aiosqlite://")
     async with engine.begin() as connection:
         await connection.run_sync(User.__table__.create)
+        await connection.run_sync(Document.__table__.create)
+        await connection.run_sync(IngestionJob.__table__.create)
+    previous_storage_path = settings.local_storage_path
+    settings.local_storage_path = tmp_path / "storage"
     async with AsyncSession(engine, expire_on_commit=False) as test_session:
         yield test_session
+    settings.local_storage_path = previous_storage_path
     await engine.dispose()
 
 
