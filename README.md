@@ -27,8 +27,11 @@ A multi-user Retrieval-Augmented Generation API built with FastAPI, PostgreSQL/p
 - Grounded Hugging Face answers with page-level source citations
 - User-owned conversation history with persisted questions, answers, and citations
 - True token streaming through Server-Sent Events
+- Redis-backed distributed rate limiting with hashed identity keys
+- Request IDs, structured JSON access logs, and optional Sentry monitoring
+- Non-root production container with health checks and graceful init
 
-Production hardening and deployment validation are the next implementation milestones.
+The main implementation milestones are complete; live infrastructure and Hugging Face validation remain environment-specific deployment tasks.
 
 ## Quick start
 
@@ -126,3 +129,15 @@ uv run alembic upgrade head --sql
 ```
 
 Live Hugging Face calls will be isolated behind async service interfaces and mocked in CI so tests remain deterministic and do not incur inference charges.
+
+## Production operations
+
+Sensitive authentication, upload, and RAG endpoints use Redis-backed rate limits shared by all API workers. Identity components are SHA-256 hashed before becoming Redis keys. If Redis is unavailable, protected operations fail closed with `503` rather than silently disabling abuse protection.
+
+Every response includes `X-Request-ID`. Valid caller-supplied IDs are propagated; invalid values are replaced. Access logs are JSON and include method, path, status, duration, and request ID. Set `SENTRY_DSN` to enable error monitoring without sending default personally identifiable information.
+
+The Docker image runs as a non-root user and includes an API health check. Run migrations as a release/pre-deploy command before starting new API and worker instances:
+
+```bash
+uv run alembic upgrade head
+```
