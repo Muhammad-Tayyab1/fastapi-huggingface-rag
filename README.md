@@ -21,8 +21,10 @@ A multi-user Retrieval-Augmented Generation API built with FastAPI, PostgreSQL/p
 - User-owned document listing, status, deletion, and reprocessing jobs
 - ARQ/Redis background ingestion with idempotent chunk replacement
 - PDF, DOCX, and TXT extraction, normalization, and deterministic chunking
+- Batched Hugging Face embeddings with retries and strict dimension validation
+- Unit-normalized pgvector values and `ready` document promotion
 
-Hugging Face embeddings, retrieval, generation, citations, and conversations are the next implementation milestones.
+Retrieval, generation, citations, and conversations are the next implementation milestones.
 
 ## Quick start
 
@@ -66,7 +68,7 @@ Open Swagger UI at `http://127.0.0.1:8000/docs`.
 | `POST` | `/api/v1/documents/{id}/reprocess` | Queue failed/completed processing again |
 | `DELETE` | `/api/v1/documents/{id}` | Delete the document and stored file |
 
-Uploads create an ingestion job and enqueue it in Redis. The worker extracts and normalizes text, replaces existing chunks idempotently, and records page/chunk metadata. Successfully extracted documents have the `extracted` state until the next milestone adds Hugging Face embeddings and promotes them to `ready`.
+Uploads create an ingestion job and enqueue it in Redis. The worker extracts and normalizes text, replaces existing chunks idempotently, records page/chunk metadata, requests embeddings from Hugging Face in configurable batches, and promotes the document from `extracted` to `ready`. Provider timeouts are retried with exponential backoff, and unexpected embedding dimensions fail the job safely.
 
 ## Structure
 
