@@ -19,8 +19,10 @@ A multi-user Retrieval-Augmented Generation API built with FastAPI, PostgreSQL/p
 - Repository and service boundaries for user authentication
 - Authenticated PDF, DOCX, and TXT uploads with content validation
 - User-owned document listing, status, deletion, and reprocessing jobs
+- ARQ/Redis background ingestion with idempotent chunk replacement
+- PDF, DOCX, and TXT extraction, normalization, and deterministic chunking
 
-Document ingestion, Hugging Face embeddings, retrieval, generation, citations, and conversations are the next implementation milestones.
+Hugging Face embeddings, retrieval, generation, citations, and conversations are the next implementation milestones.
 
 ## Quick start
 
@@ -30,6 +32,8 @@ cp .env.example .env
 docker compose up -d postgres redis
 uv run alembic upgrade head
 uv run uvicorn app.main:app --reload
+# In another terminal:
+uv run arq app.workers.settings.WorkerSettings
 ```
 
 Open Swagger UI at `http://127.0.0.1:8000/docs`.
@@ -61,6 +65,8 @@ Open Swagger UI at `http://127.0.0.1:8000/docs`.
 | `GET` | `/api/v1/documents/{id}/status` | Read document and ingestion status |
 | `POST` | `/api/v1/documents/{id}/reprocess` | Queue failed/completed processing again |
 | `DELETE` | `/api/v1/documents/{id}` | Delete the document and stored file |
+
+Uploads create an ingestion job and enqueue it in Redis. The worker extracts and normalizes text, replaces existing chunks idempotently, and records page/chunk metadata. Successfully extracted documents have the `extracted` state until the next milestone adds Hugging Face embeddings and promotes them to `ready`.
 
 ## Structure
 

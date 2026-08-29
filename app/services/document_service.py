@@ -8,6 +8,7 @@ from app.core.exceptions import AppError
 from app.models.document import Document, IngestionJob
 from app.repositories.documents import DocumentRepository
 from app.schemas.document import DocumentStatusResponse, DocumentUploadResponse
+from app.services.queue_service import enqueue_ingestion
 from app.services.storage_service import LocalStorageService
 
 
@@ -42,6 +43,20 @@ async def upload_document(
         await session.rollback()
         await storage.delete(stored.storage_key)
         raise
+    try:
+        await enqueue_ingestion(document.id, job.id)
+    except Exception as exc:
+        document.status = "failed"
+        document.error_message = "Unable to queue document processing"
+        job.status = "failed"
+        job.error_message = document.error_message
+        session.add(document)
+        session.add(job)
+        await session.commit()
+        raise AppError(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "Document was saved but processing could not be queued",
+        ) from exc
     return DocumentUploadResponse(document=document, job=job)
 
 
@@ -62,7 +77,19 @@ async def reprocess(session: AsyncSession, document_id: UUID, user_id: UUID) -> 
     document.status = "uploaded"
     document.error_message = None
     session.add(document)
-    return await DocumentRepository(session).create_job(job)
+    job = await DocumentRepository(session).create_job(job)
+    try:
+        await enqueue_ingestion(document.id, job.id)
+    except Exception as exc:
+        job.status = "failed"
+        job.error_message = "Unable to queue document processing"
+        document.status = "failed"
+        document.error_message = job.error_message
+        session.add(job)
+        session.add(document)
+        await session.commit()
+        raise AppError(status.HTTP_503_SERVICE_UNAVAILABLE, job.error_message) from exc
+    return job
 
 
 async def delete_document(session: AsyncSession, document_id: UUID, user_id: UUID) -> None:

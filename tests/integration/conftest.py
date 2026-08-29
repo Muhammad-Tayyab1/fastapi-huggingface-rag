@@ -1,4 +1,5 @@
 from collections.abc import AsyncGenerator
+from unittest.mock import AsyncMock
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -10,6 +11,13 @@ from app.core.db import get_session
 from app.main import app
 from app.models.document import Document, IngestionJob
 from app.models.user import User
+
+
+@pytest.fixture(autouse=True)
+def mock_ingestion_queue(monkeypatch) -> AsyncMock:
+    mocked = AsyncMock()
+    monkeypatch.setattr("app.services.document_service.enqueue_ingestion", mocked)
+    return mocked
 
 
 @pytest.fixture

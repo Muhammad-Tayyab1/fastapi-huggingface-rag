@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
-DocumentStatus = Literal["uploaded", "processing", "ready", "failed"]
+DocumentStatus = Literal["uploaded", "processing", "extracted", "ready", "failed"]
 JobStatus = Literal["queued", "processing", "completed", "failed"]
 
 
