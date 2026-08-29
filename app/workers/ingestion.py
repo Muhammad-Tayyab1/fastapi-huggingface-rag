@@ -10,6 +10,7 @@ from app.core.db import engine
 from app.models.document import Document, DocumentChunk, IngestionJob
 from app.repositories.documents import DocumentRepository
 from app.services.chunking_service import chunk_pages
+from app.services.embedding_service import embed_texts
 from app.services.extraction_service import extract
 
 
@@ -65,13 +66,23 @@ async def process_document(_: dict[str, Any], document_id: str, job_id: str) -> 
                 default=1,
             )
             document.status = "extracted"
+            job.progress = 60
+            session.add(document)
+            session.add(job)
+            await session.commit()
+
+            embeddings = await embed_texts([record.content for record in records])
+            for record, embedding in zip(records, embeddings, strict=True):
+                record.embedding = embedding
+                session.add(record)
+            document.status = "ready"
             job.status = "completed"
             job.progress = 100
             job.completed_at = datetime.now(UTC)
             session.add(document)
             session.add(job)
             await session.commit()
-            return {"pages": len(pages), "chunks": len(chunks)}
+            return {"pages": len(pages), "chunks": len(chunks), "embeddings": len(embeddings)}
         except Exception as exc:
             await session.rollback()
             document.status = "failed"
