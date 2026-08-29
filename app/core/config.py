@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     hf_embedding_model: str = "thenlper/gte-large"
     hf_chat_model: str = "Qwen/Qwen2.5-7B-Instruct-1M"
     hf_timeout_seconds: float = Field(default=60, gt=0)
+    hf_embedding_batch_size: int = Field(default=16, ge=1, le=128)
+    hf_max_retries: int = Field(default=3, ge=1, le=10)
 
     embedding_dimension: int = Field(default=1024, gt=0)
     chunk_size: int = Field(default=800, ge=100)
@@ -43,6 +45,8 @@ class Settings(BaseSettings):
             raise ValueError("CHUNK_OVERLAP must be smaller than CHUNK_SIZE")
         if self.app_env == "production" and self.jwt_secret.get_secret_value() == "change-me":
             raise ValueError("JWT_SECRET must be configured in production")
+        if self.app_env == "production" and not self.hf_token.get_secret_value():
+            raise ValueError("HF_TOKEN must be configured in production")
         return self
 
 
