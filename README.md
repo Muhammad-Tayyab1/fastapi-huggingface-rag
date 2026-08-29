@@ -15,8 +15,10 @@ A multi-user Retrieval-Augmented Generation API built with FastAPI, PostgreSQL/p
 - Health and dependency-readiness endpoints
 - Docker Compose for PostgreSQL and Redis
 - Docker image, tests, linting, and GitHub Actions CI
+- JWT registration, login, refresh, and profile endpoints
+- Repository and service boundaries for user authentication
 
-Document ingestion, authentication, Hugging Face embeddings, retrieval, generation, citations, and conversations are the next implementation milestones.
+Document ingestion, Hugging Face embeddings, retrieval, generation, citations, and conversations are the next implementation milestones.
 
 ## Quick start
 
@@ -36,6 +38,16 @@ Open Swagger UI at `http://127.0.0.1:8000/docs`.
 | --- | --- | --- |
 | `GET` | `/api/v1/health` | Process liveness |
 | `GET` | `/api/v1/ready` | PostgreSQL and Redis readiness |
+
+## Authentication endpoints
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `POST` | `/api/v1/auth/register` | Create a user account |
+| `POST` | `/api/v1/auth/login` | Issue access and refresh tokens |
+| `POST` | `/api/v1/auth/refresh` | Rotate the token pair |
+| `GET` | `/api/v1/users/me` | Read the current profile |
+| `PATCH` | `/api/v1/users/me` | Update the current profile |
 
 ## Structure
 

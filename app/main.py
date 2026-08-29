@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.db import close_db
+from app.core.exceptions import AppError, app_error_handler
 from app.core.redis import close_redis
 
 
@@ -33,6 +34,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     application.include_router(api_router)
+    application.add_exception_handler(AppError, app_error_handler)
     return application
 
 
