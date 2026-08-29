@@ -1,9 +1,10 @@
 from uuid import UUID
 
+from sqlalchemy import delete
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.models.document import Document, IngestionJob
+from app.models.document import Document, DocumentChunk, IngestionJob
 
 
 class DocumentRepository:
@@ -53,3 +54,10 @@ class DocumentRepository:
     async def delete(self, document: Document) -> None:
         await self.session.delete(document)
         await self.session.commit()
+
+    async def replace_chunks(self, document_id: UUID, chunks: list[DocumentChunk]) -> None:
+        await self.session.exec(
+            delete(DocumentChunk).where(DocumentChunk.document_id == document_id)
+        )
+        self.session.add_all(chunks)
+        await self.session.flush()

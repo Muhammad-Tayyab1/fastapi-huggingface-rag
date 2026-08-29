@@ -53,7 +53,9 @@ class DocumentChunk(SQLModel, table=True):
         )
     )
     content: str = Field(sa_column=Column(Text, nullable=False))
-    embedding: Any = Field(sa_column=Column(Vector(settings.embedding_dimension), nullable=False))
+    embedding: Any | None = Field(
+        default=None, sa_column=Column(Vector(settings.embedding_dimension), nullable=True)
+    )
     chunk_index: int = Field(ge=0)
     page_number: int | None = Field(default=None, ge=1)
     token_count: int | None = Field(default=None, ge=0)
