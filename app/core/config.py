@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     chunk_overlap: int = Field(default=120, ge=0)
     retrieval_top_k: int = Field(default=5, ge=1, le=50)
     retrieval_min_score: float = Field(default=0.65, ge=0, le=1)
+    rag_max_context_chars: int = Field(default=12000, ge=1000, le=100000)
+    rag_max_output_tokens: int = Field(default=700, ge=1, le=4096)
+    rag_temperature: float = Field(default=0.1, ge=0, le=2)
     max_upload_mb: int = Field(default=20, ge=1, le=200)
 
     storage_backend: Literal["local", "s3"] = "local"
