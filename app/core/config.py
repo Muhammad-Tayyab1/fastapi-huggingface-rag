@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     hf_reranker_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     rerank_candidate_multiplier: int = Field(default=3, ge=1, le=10)
     reranker_fail_open: bool = True
+    prompt_injection_policy: Literal["allow", "flag", "block"] = "flag"
     rag_max_context_chars: int = Field(default=12000, ge=1000, le=100000)
     rag_max_output_tokens: int = Field(default=700, ge=1, le=4096)
     rag_temperature: float = Field(default=0.1, ge=0, le=2)
