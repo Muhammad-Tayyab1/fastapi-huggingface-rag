@@ -16,6 +16,7 @@ A multi-user Retrieval-Augmented Generation API built with FastAPI, PostgreSQL/p
 - Docker Compose for PostgreSQL and Redis
 - Docker image, tests, linting, and GitHub Actions CI
 - JWT registration, login, refresh, and profile endpoints
+- Revocable, expiring API keys for server-to-server clients
 - Repository and service boundaries for user authentication
 - Authenticated PDF, DOCX, and TXT uploads with content validation
 - Pluggable local or S3-compatible document storage
@@ -67,6 +68,16 @@ Open Swagger UI at `http://127.0.0.1:8000/docs`.
 | `POST` | `/api/v1/auth/refresh` | Rotate the token pair |
 | `GET` | `/api/v1/users/me` | Read the current profile |
 | `PATCH` | `/api/v1/users/me` | Update the current profile |
+
+## API key endpoints
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `POST` | `/api/v1/api-keys/` | Create an optionally expiring API key |
+| `GET` | `/api/v1/api-keys/` | List active API-key metadata |
+| `DELETE` | `/api/v1/api-keys/{id}` | Revoke an API key immediately |
+
+API-key management requires a JWT access token. The plaintext key is returned once when created and is never stored; only its SHA-256 digest and non-secret lookup prefix are retained. API clients can authenticate other protected endpoints with the `X-API-Key` header. Revoked, expired, malformed, and inactive-user keys return `401`.
 
 ## Document endpoints
 

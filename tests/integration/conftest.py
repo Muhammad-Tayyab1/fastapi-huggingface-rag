@@ -11,7 +11,7 @@ from app.core.db import get_session
 from app.main import app
 from app.models.conversation import AnswerFeedback, Conversation, Message
 from app.models.document import Document, IngestionJob
-from app.models.user import User
+from app.models.user import ApiKey, User
 
 
 @pytest.fixture(autouse=True)
@@ -33,6 +33,7 @@ async def session(tmp_path) -> AsyncGenerator[AsyncSession, None]:
     engine = create_async_engine("sqlite+aiosqlite://")
     async with engine.begin() as connection:
         await connection.run_sync(User.__table__.create)
+        await connection.run_sync(ApiKey.__table__.create)
         await connection.run_sync(Document.__table__.create)
         await connection.run_sync(IngestionJob.__table__.create)
         await connection.run_sync(Conversation.__table__.create)

@@ -2,6 +2,7 @@ from sqlmodel import SQLModel
 
 from app.models import (  # noqa: F401
     AnswerFeedback,
+    ApiKey,
     Conversation,
     Document,
     DocumentChunk,
@@ -20,6 +21,7 @@ def test_expected_tables_are_registered() -> None:
         "conversations",
         "messages",
         "answer_feedback",
+        "api_keys",
     }
 
 
