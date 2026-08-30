@@ -1,7 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import Depends, status
+from fastapi import Depends, Request, status
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -43,6 +43,7 @@ async def get_current_jwt_user(
 async def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
     raw_api_key: Annotated[str | None, Depends(api_key_scheme)],
+    request: Request,
     session: SessionDep,
 ) -> User:
     if raw_api_key:
@@ -50,6 +51,8 @@ async def get_current_user(
         user = await UserRepository(session).by_id(api_key.user_id) if api_key else None
         if not user or not user.is_active:
             raise AppError(status.HTTP_401_UNAUTHORIZED, "Invalid authentication credentials")
+        if request.method in {"POST", "PUT", "PATCH", "DELETE"} and "write" not in api_key.scopes:
+            raise AppError(status.HTTP_403_FORBIDDEN, "API key does not have write scope")
         return user
     return await _jwt_user(credentials, session)
 

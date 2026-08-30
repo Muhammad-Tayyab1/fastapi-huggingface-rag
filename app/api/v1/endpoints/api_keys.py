@@ -21,6 +21,7 @@ async def create_key(
         ApiKey(
             user_id=user.id,
             name=data.name,
+            scopes=data.scopes,
             key_prefix=prefix,
             key_hash=key_hash,
             expires_at=data.expires_at,

@@ -19,11 +19,14 @@ async def auth_headers(client: AsyncClient, email: str) -> dict[str, str]:
 async def test_api_key_lifecycle_and_authentication(client: AsyncClient) -> None:
     bearer = await auth_headers(client, "api-key-owner@example.com")
     created = await client.post(
-        f"{API}/api-keys/", headers=bearer, json={"name": "evaluation runner"}
+        f"{API}/api-keys/",
+        headers=bearer,
+        json={"name": "evaluation runner", "scopes": ["read", "write"]},
     )
     assert created.status_code == 201
     body = created.json()
     assert body["key"].startswith(f"rag_{body['key_prefix']}.")
+    assert body["scopes"] == ["read", "write"]
 
     listed = await client.get(f"{API}/api-keys/", headers=bearer)
     assert listed.status_code == 200
@@ -76,3 +79,17 @@ async def test_expired_api_key_cannot_authenticate(
 
     response = await client.get(f"{API}/users/me", headers={"X-API-Key": created.json()["key"]})
     assert response.status_code == 401
+
+
+async def test_read_only_api_key_cannot_mutate(client: AsyncClient) -> None:
+    bearer = await auth_headers(client, "api-key-read-only@example.com")
+    created = await client.post(
+        f"{API}/api-keys/", headers=bearer, json={"name": "reader", "scopes": ["read"]}
+    )
+    api_headers = {"X-API-Key": created.json()["key"]}
+
+    assert (await client.get(f"{API}/users/me", headers=api_headers)).status_code == 200
+    response = await client.patch(
+        f"{API}/users/me", headers=api_headers, json={"full_name": "Nope"}
+    )
+    assert response.status_code == 403
