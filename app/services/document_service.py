@@ -9,7 +9,7 @@ from app.models.document import Document, IngestionJob
 from app.repositories.documents import DocumentRepository
 from app.schemas.document import DocumentStatusResponse, DocumentUploadResponse
 from app.services.queue_service import enqueue_ingestion
-from app.services.storage_service import LocalStorageService
+from app.services.storage_service import get_storage_service
 
 
 async def owned_document(session: AsyncSession, document_id: UUID, user_id: UUID) -> Document:
@@ -25,7 +25,7 @@ async def upload_document(
     upload: UploadFile,
     name: str | None,
 ) -> DocumentUploadResponse:
-    storage = LocalStorageService()
+    storage = get_storage_service()
     stored = await storage.save(upload, user_id)
     original_filename = Path(upload.filename or "document").name
     document = Document(
@@ -94,5 +94,5 @@ async def reprocess(session: AsyncSession, document_id: UUID, user_id: UUID) -> 
 
 async def delete_document(session: AsyncSession, document_id: UUID, user_id: UUID) -> None:
     document = await owned_document(session, document_id, user_id)
-    await LocalStorageService().delete(document.storage_key)
+    await get_storage_service().delete(document.storage_key)
     await DocumentRepository(session).delete(document)

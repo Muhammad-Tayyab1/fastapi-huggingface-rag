@@ -63,7 +63,8 @@ async def unhandled_error_handler(request: Request, exc: Exception) -> JSONRespo
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    settings.local_storage_path.mkdir(parents=True, exist_ok=True)
+    if settings.storage_backend == "local":
+        settings.local_storage_path.mkdir(parents=True, exist_ok=True)
     yield
     await close_redis()
     await close_db()
