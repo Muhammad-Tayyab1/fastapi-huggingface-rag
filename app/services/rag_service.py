@@ -69,6 +69,7 @@ async def search(
     query_embedding = await embedder.embed_query(request.question)
     results = await ChunkRepository(session).similarity_search(
         user_id=user_id,
+        query_text=request.question,
         query_embedding=query_embedding,
         document_ids=request.document_ids,
         top_k=request.top_k or settings.retrieval_top_k,
