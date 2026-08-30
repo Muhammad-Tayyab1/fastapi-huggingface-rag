@@ -31,6 +31,7 @@ A multi-user Retrieval-Augmented Generation API built with FastAPI, PostgreSQL/p
 - Redis-backed distributed rate limiting with hashed identity keys
 - Request IDs, structured JSON access logs, and optional Sentry monitoring
 - Non-root production container with health checks and graceful init
+- Render Blueprint for API, worker, managed pgvector/PostgreSQL, and Redis
 
 The main implementation milestones are complete. CI validates migrations, pgvector retrieval isolation, Redis throttling, and dependency readiness against real service containers.
 
@@ -146,6 +147,10 @@ uv run alembic upgrade head
 ```
 
 Docker Compose includes a one-shot `migrate` service, and the API and worker wait for it to complete successfully before starting.
+
+### Render deployment
+
+[`render.yaml`](render.yaml) provisions the Docker API, ARQ worker, managed PostgreSQL, and private Redis-compatible Key Value service. Production uploads use the S3-compatible backend so the API and worker remain stateless. Follow the [Render deployment runbook](docs/deployment.md) for secret configuration, migration ordering, verification, and rollback.
 
 ### Live validation
 

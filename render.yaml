@@ -1,0 +1,94 @@
+# yaml-language-server: $schema=https://render.com/schema/render.yaml.json
+services:
+  - type: web
+    name: fastapi-huggingface-rag-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
+    preDeployCommand: uv run alembic upgrade head
+    healthCheckPath: /api/v1/ready
+    autoDeployTrigger: checksPass
+    maxShutdownDelaySeconds: 60
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: fastapi-huggingface-rag-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: fastapi-huggingface-rag-redis
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: HF_TOKEN
+        sync: false
+      - key: STORAGE_BACKEND
+        value: s3
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_REGION
+        value: us-east-1
+      - key: S3_ENDPOINT_URL
+        value: ""
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        value: '[]'
+
+  - type: worker
+    name: fastapi-huggingface-rag-worker
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: uv run arq app.workers.settings.WorkerSettings
+    autoDeployTrigger: checksPass
+    maxShutdownDelaySeconds: 300
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: fastapi-huggingface-rag-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: fastapi-huggingface-rag-redis
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: HF_TOKEN
+        sync: false
+      - key: STORAGE_BACKEND
+        value: s3
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_REGION
+        value: us-east-1
+      - key: S3_ENDPOINT_URL
+        value: ""
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        value: '[]'
+
+  - type: keyvalue
+    name: fastapi-huggingface-rag-redis
+    ipAllowList: []
+    maxmemoryPolicy: noeviction
+    persistenceMode: journal-snapshot
+
+databases:
+  - name: fastapi-huggingface-rag-db
+    databaseName: rag
+    user: rag
+    postgresMajorVersion: "17"
+    ipAllowList: []

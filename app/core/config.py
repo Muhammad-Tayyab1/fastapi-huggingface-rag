@@ -2,7 +2,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -54,6 +54,13 @@ class Settings(BaseSettings):
     s3_secret_access_key: SecretStr = SecretStr("")
     s3_prefix: str = "documents"
     cors_origins: list[str] = ["http://localhost:3000"]
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def normalize_database_url(cls, value: object) -> object:
+        if isinstance(value, str) and value.startswith("postgresql://"):
+            return value.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return value
 
     @model_validator(mode="after")
     def validate_chunking(self) -> "Settings":
