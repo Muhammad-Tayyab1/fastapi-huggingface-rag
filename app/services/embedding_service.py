@@ -78,6 +78,13 @@ class EmbeddingService:
             embeddings.extend(self._validate_and_normalize(vectors))
         return embeddings
 
+    async def embed_query(self, question: str) -> list[float]:
+        return (await self.embed_documents([question]))[0]
+
 
 async def embed_texts(texts: list[str]) -> list[list[float]]:
     return await EmbeddingService().embed_documents(texts)
+
+
+async def embed_query(question: str) -> list[float]:
+    return await EmbeddingService().embed_query(question)
