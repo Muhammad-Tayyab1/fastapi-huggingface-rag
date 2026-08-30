@@ -1,3 +1,4 @@
+import logging
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from uuid import UUID
@@ -18,6 +19,9 @@ from app.schemas.rag import (
 from app.services import conversation_service
 from app.services.embedding_service import EmbeddingService
 from app.services.llm_service import LLMService
+from app.services.reranking_service import RerankingService
+
+logger = logging.getLogger(__name__)
 
 NO_CONTEXT_ANSWER = (
     "The provided documents do not contain enough information to answer this question."
@@ -64,19 +68,33 @@ async def search(
     user_id: UUID,
     request: RAGSearchRequest,
     embedding_service: EmbeddingService | None = None,
+    reranking_service: RerankingService | None = None,
 ) -> tuple[list[RetrievedChunk], list[RAGSource]]:
     embedder = embedding_service or EmbeddingService()
     query_embedding = await embedder.embed_query(request.question)
+    top_k = request.top_k or settings.retrieval_top_k
+    candidate_top_k = (
+        top_k * settings.rerank_candidate_multiplier if settings.reranking_enabled else top_k
+    )
     results = await ChunkRepository(session).similarity_search(
         user_id=user_id,
         query_text=request.question,
         query_embedding=query_embedding,
         document_ids=request.document_ids,
-        top_k=request.top_k or settings.retrieval_top_k,
+        top_k=candidate_top_k,
         min_score=request.min_score
         if request.min_score is not None
         else settings.retrieval_min_score,
     )
+    if settings.reranking_enabled and results:
+        reranker = reranking_service or RerankingService()
+        try:
+            results = await reranker.rerank(request.question, results, top_k)
+        except (RuntimeError, ValueError):
+            if not settings.reranker_fail_open:
+                raise
+            logger.warning("reranking failed; using hybrid retrieval order", exc_info=True)
+            results = results[:top_k]
     return results, [_source(result) for result in results]
 
 
@@ -92,6 +110,7 @@ async def prepare_query(
     user_id: UUID,
     request: RAGQueryRequest,
     embedding_service: EmbeddingService | None = None,
+    reranking_service: RerankingService | None = None,
 ) -> PreparedQuery:
     conversation = await conversation_service.get_or_create(
         session, user_id, request.conversation_id, request.question
@@ -102,7 +121,7 @@ async def prepare_query(
         for message in messages
         if message.role in {"user", "assistant"}
     ]
-    results, sources = await search(session, user_id, request, embedding_service)
+    results, sources = await search(session, user_id, request, embedding_service, reranking_service)
     return PreparedQuery(
         request=request,
         conversation=conversation,
@@ -118,8 +137,9 @@ async def query(
     request: RAGQueryRequest,
     embedding_service: EmbeddingService | None = None,
     llm_service: LLMService | None = None,
+    reranking_service: RerankingService | None = None,
 ) -> RAGQueryResponse:
-    prepared = await prepare_query(session, user_id, request, embedding_service)
+    prepared = await prepare_query(session, user_id, request, embedding_service, reranking_service)
     if not prepared.results:
         answer = NO_CONTEXT_ANSWER
         grounded = False

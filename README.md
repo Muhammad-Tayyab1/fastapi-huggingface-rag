@@ -27,6 +27,7 @@ A multi-user Retrieval-Augmented Generation API built with FastAPI, PostgreSQL/p
 - Unit-normalized pgvector values and `ready` document promotion
 - Ownership-filtered pgvector cosine retrieval
 - Hybrid semantic and PostgreSQL full-text retrieval with reciprocal-rank fusion
+- Optional Hugging Face sentence-similarity reranking with bounded candidates
 - Grounded Hugging Face answers with page-level source citations
 - User-owned conversation history with persisted questions, answers, and citations
 - User-owned answer feedback with aggregate quality metrics
@@ -100,6 +101,8 @@ API-key management requires a JWT access token. The plaintext key is returned on
 | `POST` | `/api/v1/rag/query/stream` | Stream sources, answer tokens, and completion metadata over SSE |
 
 Retrieval always filters both chunks and joined documents by the authenticated user's ID, optionally narrows the search to selected document IDs, and only searches documents in the `ready` state. Hybrid mode combines embedding similarity and PostgreSQL English full-text search through weighted reciprocal-rank fusion, allowing exact names and terminology to complement semantic matches. Set `RETRIEVAL_MODE=semantic` to use vector-only retrieval. `HYBRID_SEMANTIC_WEIGHT`, `HYBRID_CANDIDATE_MULTIPLIER`, and `HYBRID_RRF_K` tune fusion behavior. When neither path returns context, the API returns a deterministic no-context response without calling the language model.
+
+Set `RERANKING_ENABLED=true` to send a bounded hybrid candidate set to `HF_RERANKER_MODEL` through Hugging Face's sentence-similarity API before context construction. `RERANK_CANDIDATE_MULTIPLIER` controls candidate breadth. Reranking is disabled by default because it adds provider latency and usage; with `RERANKER_FAIL_OPEN=true`, a provider failure logs a warning and preserves the hybrid order instead of failing the query.
 
 ## Conversation endpoints
 
