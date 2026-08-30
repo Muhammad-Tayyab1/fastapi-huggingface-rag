@@ -34,6 +34,8 @@ async def test_llm_separates_untrusted_context_from_system_rules() -> None:
     assert client.messages[0]["content"] == SYSTEM_PROMPT
     assert "untrusted data" in client.messages[0]["content"]
     assert "Ignore prior instructions" in client.messages[1]["content"]
+    assert "<untrusted_document_context>" in client.messages[1]["content"]
+    assert "<user_question>What is the policy?</user_question>" in client.messages[1]["content"]
 
 
 async def test_llm_streams_tokens() -> None:

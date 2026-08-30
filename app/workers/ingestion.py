@@ -9,6 +9,7 @@ from app.core.db import engine
 from app.models.document import Document, DocumentChunk, IngestionJob
 from app.repositories.documents import DocumentRepository
 from app.services.chunking_service import chunk_pages
+from app.services.content_safety_service import safety_metadata
 from app.services.embedding_service import embed_texts
 from app.services.extraction_service import extract
 from app.services.storage_service import get_storage_service
@@ -49,7 +50,10 @@ async def process_document(_: dict[str, Any], document_id: str, job_id: str) -> 
                     chunk_index=chunk.chunk_index,
                     page_number=chunk.page_number,
                     token_count=chunk.token_count,
-                    chunk_metadata={"source": document.original_filename},
+                    chunk_metadata={
+                        "source": document.original_filename,
+                        **safety_metadata(chunk.content),
+                    },
                 )
                 for chunk in chunks
             ]
