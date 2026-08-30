@@ -31,7 +31,7 @@ A multi-user Retrieval-Augmented Generation API built with FastAPI, PostgreSQL/p
 - Request IDs, structured JSON access logs, and optional Sentry monitoring
 - Non-root production container with health checks and graceful init
 
-The main implementation milestones are complete; live infrastructure and Hugging Face validation remain environment-specific deployment tasks.
+The main implementation milestones are complete. CI validates migrations, pgvector retrieval isolation, Redis throttling, and dependency readiness against real service containers.
 
 ## Quick start
 
@@ -141,3 +141,15 @@ The Docker image runs as a non-root user and includes an API health check. Run m
 ```bash
 uv run alembic upgrade head
 ```
+
+Docker Compose includes a one-shot `migrate` service, and the API and worker wait for it to complete successfully before starting.
+
+### Live validation
+
+The standard test suite mocks paid inference calls. To validate a real Hugging Face account and configured models explicitly:
+
+```bash
+HF_TOKEN=hf_xxx uv run python scripts/validate_huggingface.py
+```
+
+This command performs one embedding request and one small chat-completion request and may consume provider credits. Infrastructure tests are guarded to prevent accidental execution against a non-test database; GitHub Actions runs them with dedicated ephemeral PostgreSQL/pgvector and Redis services.
