@@ -36,6 +36,7 @@ A multi-user Retrieval-Augmented Generation API built with FastAPI, PostgreSQL/p
 - True token streaming through Server-Sent Events
 - Redis-backed distributed rate limiting with hashed identity keys
 - Request IDs, structured JSON access logs, and optional Sentry monitoring
+- Token-protected Prometheus metrics with low-cardinality labels and ARQ queue depth
 - Non-root production container with health checks and graceful init
 - Render Blueprint for API, worker, managed pgvector/PostgreSQL, and Redis
 
@@ -182,6 +183,8 @@ Live Hugging Face calls will be isolated behind async service interfaces and moc
 Sensitive authentication, upload, and RAG endpoints use Redis-backed rate limits shared by all API workers. Identity components are SHA-256 hashed before becoming Redis keys. If Redis is unavailable, protected operations fail closed with `503` rather than silently disabling abuse protection.
 
 Every response includes `X-Request-ID`. Valid caller-supplied IDs are propagated; invalid values are replaced. Access logs are JSON and include method, path, status, duration, and request ID. Set `SENTRY_DSN` to enable error monitoring without sending default personally identifiable information.
+
+Set `METRICS_ENABLED=true` and a strong `METRICS_BEARER_TOKEN` to expose Prometheus text metrics at `/metrics`. Scrape with `Authorization: Bearer <token>`. Metrics cover HTTP request counts/latency, grounded and no-context RAG outcomes, Hugging Face operation outcomes, ingestion completion/failure/latency, and current ARQ queue depth. Labels intentionally exclude user IDs, document IDs, questions, filenames, request IDs, and credentials. For multi-process API deployments, configure the Prometheus Python client's multiprocess mode or run one metrics-producing API process per container.
 
 The Docker image runs as a non-root user and includes an API health check. Run migrations as a release/pre-deploy command before starting new API and worker instances:
 

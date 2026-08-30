@@ -7,6 +7,7 @@ from huggingface_hub import AsyncInferenceClient
 from huggingface_hub.errors import HfHubHTTPError, InferenceTimeoutError
 
 from app.core.config import settings
+from app.core.metrics import PROVIDER_REQUESTS
 from app.repositories.chunks import RetrievedChunk
 
 Sleep = Callable[[float], Awaitable[None]]
@@ -39,8 +40,10 @@ class RerankingService:
                     other_sentences=passages,
                     model=settings.hf_reranker_model,
                 )
+                PROVIDER_REQUESTS.labels("reranking", "success").inc()
                 return [float(value) for value in values]
             except (HfHubHTTPError, InferenceTimeoutError) as exc:
+                PROVIDER_REQUESTS.labels("reranking", "error").inc()
                 if attempt == self.max_retries:
                     raise RuntimeError("Hugging Face reranking request failed") from exc
                 await self.sleep(2 ** (attempt - 1))

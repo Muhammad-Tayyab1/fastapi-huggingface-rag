@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     sentry_dsn: SecretStr = SecretStr("")
     sentry_traces_sample_rate: float = Field(default=0, ge=0, le=1)
+    metrics_enabled: bool = False
+    metrics_bearer_token: SecretStr = SecretStr("")
+    arq_queue_name: str = "arq:queue"
 
     jwt_secret: SecretStr = SecretStr("change-me")
     jwt_algorithm: str = "HS256"
@@ -81,6 +84,12 @@ class Settings(BaseSettings):
             raise ValueError("HF_TOKEN must be configured in production")
         if self.storage_backend == "s3" and not self.s3_bucket:
             raise ValueError("S3_BUCKET must be configured when STORAGE_BACKEND=s3")
+        if (
+            self.app_env == "production"
+            and self.metrics_enabled
+            and not self.metrics_bearer_token.get_secret_value()
+        ):
+            raise ValueError("METRICS_BEARER_TOKEN must be configured when metrics are enabled")
         return self
 
 
