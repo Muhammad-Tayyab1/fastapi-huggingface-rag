@@ -27,6 +27,7 @@ A multi-user Retrieval-Augmented Generation API built with FastAPI, PostgreSQL/p
 - Ownership-filtered pgvector cosine retrieval
 - Grounded Hugging Face answers with page-level source citations
 - User-owned conversation history with persisted questions, answers, and citations
+- User-owned answer feedback with aggregate quality metrics
 - True token streaming through Server-Sent Events
 - Redis-backed distributed rate limiting with hashed identity keys
 - Request IDs, structured JSON access logs, and optional Sentry monitoring
@@ -98,6 +99,17 @@ Retrieval always filters both chunks and joined documents by the authenticated u
 | `DELETE` | `/api/v1/conversations/{id}` | Delete an owned conversation |
 
 Both regular and streaming RAG queries accept an optional `conversation_id`. If omitted, the API creates a conversation automatically. Recent user/assistant messages are added to the generation prompt, and completed exchanges are persisted atomically. Streaming emits `sources`, repeated `token`, and final `done` SSE events.
+
+## Feedback endpoints
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `PUT` | `/api/v1/feedback/messages/{message_id}` | Create or update thumbs-up/down feedback |
+| `GET` | `/api/v1/feedback/messages/{message_id}` | Read feedback for an owned assistant answer |
+| `DELETE` | `/api/v1/feedback/messages/{message_id}` | Remove feedback from an owned answer |
+| `GET` | `/api/v1/feedback/summary` | Read the current user's aggregate feedback metrics |
+
+Feedback is accepted only for assistant messages in conversations owned by the authenticated user. Repeated writes update the single feedback record for an answer, and ownership failures return `404` to avoid disclosing another user's messages.
 
 Uploads create an ingestion job and enqueue it in Redis. The worker materializes the file from the configured storage backend, extracts and normalizes text, replaces existing chunks idempotently, records page/chunk metadata, requests embeddings from Hugging Face in configurable batches, and promotes the document from `extracted` to `ready`. Provider timeouts are retried with exponential backoff, and unexpected embedding dimensions fail the job safely.
 
