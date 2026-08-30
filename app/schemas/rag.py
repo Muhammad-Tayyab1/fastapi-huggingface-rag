@@ -10,6 +10,10 @@ class RAGSearchRequest(BaseModel):
     min_score: float | None = Field(default=None, ge=0, le=1)
 
 
+class RAGQueryRequest(RAGSearchRequest):
+    conversation_id: UUID | None = None
+
+
 class RAGSource(BaseModel):
     chunk_id: UUID
     document_id: UUID
@@ -29,3 +33,4 @@ class RAGQueryResponse(BaseModel):
     answer: str
     sources: list[RAGSource]
     grounded: bool
+    conversation_id: UUID

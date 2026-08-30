@@ -25,8 +25,10 @@ A multi-user Retrieval-Augmented Generation API built with FastAPI, PostgreSQL/p
 - Unit-normalized pgvector values and `ready` document promotion
 - Ownership-filtered pgvector cosine retrieval
 - Grounded Hugging Face answers with page-level source citations
+- User-owned conversation history with persisted questions, answers, and citations
+- True token streaming through Server-Sent Events
 
-Conversation history, streaming, and production hardening are the next implementation milestones.
+Production hardening and deployment validation are the next implementation milestones.
 
 ## Quick start
 
@@ -76,8 +78,21 @@ Open Swagger UI at `http://127.0.0.1:8000/docs`.
 | --- | --- | --- |
 | `POST` | `/api/v1/rag/search` | Return relevant owned document chunks and similarity scores |
 | `POST` | `/api/v1/rag/query` | Generate a grounded answer with document/page citations |
+| `POST` | `/api/v1/rag/query/stream` | Stream sources, answer tokens, and completion metadata over SSE |
 
 Retrieval always filters both chunks and joined documents by the authenticated user's ID, optionally narrows the search to selected document IDs, excludes unembedded chunks, and only searches documents in the `ready` state. When no result meets the configured similarity threshold, the API returns a deterministic no-context response without calling the language model.
+
+## Conversation endpoints
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `POST` | `/api/v1/conversations/` | Create a conversation |
+| `GET` | `/api/v1/conversations/` | List owned conversations |
+| `GET` | `/api/v1/conversations/{id}` | Read a conversation with messages |
+| `GET` | `/api/v1/conversations/{id}/messages` | List persisted messages and citations |
+| `DELETE` | `/api/v1/conversations/{id}` | Delete an owned conversation |
+
+Both regular and streaming RAG queries accept an optional `conversation_id`. If omitted, the API creates a conversation automatically. Recent user/assistant messages are added to the generation prompt, and completed exchanges are persisted atomically. Streaming emits `sources`, repeated `token`, and final `done` SSE events.
 
 Uploads create an ingestion job and enqueue it in Redis. The worker extracts and normalizes text, replaces existing chunks idempotently, records page/chunk metadata, requests embeddings from Hugging Face in configurable batches, and promotes the document from `extracted` to `ready`. Provider timeouts are retried with exponential backoff, and unexpected embedding dimensions fail the job safely.
 

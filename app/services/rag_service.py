@@ -1,16 +1,36 @@
+from collections.abc import AsyncIterator
+from dataclasses import dataclass
 from uuid import UUID
 
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
+from app.models.conversation import Conversation
 from app.repositories.chunks import ChunkRepository, RetrievedChunk
-from app.schemas.rag import RAGQueryResponse, RAGSearchRequest, RAGSearchResponse, RAGSource
+from app.repositories.conversations import ConversationRepository
+from app.schemas.rag import (
+    RAGQueryRequest,
+    RAGQueryResponse,
+    RAGSearchRequest,
+    RAGSearchResponse,
+    RAGSource,
+)
+from app.services import conversation_service
 from app.services.embedding_service import EmbeddingService
 from app.services.llm_service import LLMService
 
 NO_CONTEXT_ANSWER = (
     "The provided documents do not contain enough information to answer this question."
 )
+
+
+@dataclass
+class PreparedQuery:
+    request: RAGQueryRequest
+    conversation: Conversation
+    history: list[dict[str, str]]
+    results: list[RetrievedChunk]
+    sources: list[RAGSource]
 
 
 def _source(result: RetrievedChunk) -> RAGSource:
@@ -66,26 +86,85 @@ async def search_response(
     return RAGSearchResponse(question=request.question, sources=sources)
 
 
+async def prepare_query(
+    session: AsyncSession,
+    user_id: UUID,
+    request: RAGQueryRequest,
+    embedding_service: EmbeddingService | None = None,
+) -> PreparedQuery:
+    conversation = await conversation_service.get_or_create(
+        session, user_id, request.conversation_id, request.question
+    )
+    messages = await conversation_service.history(session, conversation)
+    history = [
+        {"role": message.role, "content": message.content}
+        for message in messages
+        if message.role in {"user", "assistant"}
+    ]
+    results, sources = await search(session, user_id, request, embedding_service)
+    return PreparedQuery(
+        request=request,
+        conversation=conversation,
+        history=history,
+        results=results,
+        sources=sources,
+    )
+
+
 async def query(
     session: AsyncSession,
     user_id: UUID,
-    request: RAGSearchRequest,
+    request: RAGQueryRequest,
     embedding_service: EmbeddingService | None = None,
     llm_service: LLMService | None = None,
 ) -> RAGQueryResponse:
-    results, sources = await search(session, user_id, request, embedding_service)
-    if not results:
-        return RAGQueryResponse(
-            question=request.question,
-            answer=NO_CONTEXT_ANSWER,
-            sources=[],
-            grounded=False,
+    prepared = await prepare_query(session, user_id, request, embedding_service)
+    if not prepared.results:
+        answer = NO_CONTEXT_ANSWER
+        grounded = False
+    else:
+        generator = llm_service or LLMService()
+        answer = await generator.answer(
+            request.question, build_context(prepared.results), prepared.history
         )
-    generator = llm_service or LLMService()
-    answer = await generator.answer(request.question, build_context(results))
+        grounded = True
+    await ConversationRepository(session).save_exchange(
+        prepared.conversation,
+        request.question,
+        answer,
+        [source.model_dump(mode="json") for source in prepared.sources],
+    )
     return RAGQueryResponse(
         question=request.question,
         answer=answer,
-        sources=sources,
-        grounded=True,
+        sources=prepared.sources,
+        grounded=grounded,
+        conversation_id=prepared.conversation.id,
+    )
+
+
+async def stream_prepared(
+    session: AsyncSession,
+    prepared: PreparedQuery,
+    llm_service: LLMService | None = None,
+) -> AsyncIterator[str]:
+    if not prepared.results:
+        answer = NO_CONTEXT_ANSWER
+        yield answer
+    else:
+        generator = llm_service or LLMService()
+        tokens: list[str] = []
+        async for token in generator.stream_answer(
+            prepared.request.question,
+            build_context(prepared.results),
+            prepared.history,
+        ):
+            tokens.append(token)
+            yield token
+        answer = "".join(tokens)
+    await ConversationRepository(session).save_exchange(
+        prepared.conversation,
+        prepared.request.question,
+        answer,
+        [source.model_dump(mode="json") for source in prepared.sources],
     )
