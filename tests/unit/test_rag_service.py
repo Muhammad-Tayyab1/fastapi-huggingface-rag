@@ -97,6 +97,35 @@ async def test_query_uses_safe_no_context_response(monkeypatch) -> None:
     assert response.answer == rag_service.NO_CONTEXT_ANSWER
 
 
+async def test_search_falls_back_when_optional_reranking_fails(monkeypatch) -> None:
+    candidates = [retrieved("first"), retrieved("second"), retrieved("third")]
+    captured = {}
+
+    async def fake_search(*_args, **kwargs):
+        captured.update(kwargs)
+        return candidates
+
+    class BrokenReranker:
+        async def rerank(self, *_args, **_kwargs):
+            raise RuntimeError("provider unavailable")
+
+    monkeypatch.setattr("app.repositories.chunks.ChunkRepository.similarity_search", fake_search)
+    monkeypatch.setattr(rag_service.settings, "reranking_enabled", True)
+    monkeypatch.setattr(rag_service.settings, "rerank_candidate_multiplier", 3)
+    monkeypatch.setattr(rag_service.settings, "reranker_fail_open", True)
+
+    results, _ = await rag_service.search(
+        object(),
+        uuid4(),
+        RAGQueryRequest(question="question", top_k=2),
+        embedding_service=FakeEmbedder(),
+        reranking_service=BrokenReranker(),
+    )
+
+    assert captured["top_k"] == 6
+    assert results == candidates[:2]
+
+
 async def test_stream_persists_only_the_completed_answer(monkeypatch) -> None:
     conversation = Conversation(id=uuid4(), user_id=uuid4(), title="Stream")
     prepared = rag_service.PreparedQuery(
