@@ -1,9 +1,11 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, File, Form, Query, Response, UploadFile, status
+from fastapi import APIRouter, File, Form, Query, Request, Response, UploadFile, status
 
 from app.api.deps import CurrentUser, SessionDep
+from app.core.config import settings
+from app.core.rate_limit import client_ip, rate_limiter
 from app.repositories.documents import DocumentRepository
 from app.schemas.document import (
     DocumentRead,
@@ -20,9 +22,16 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 async def upload_document(
     user: CurrentUser,
     session: SessionDep,
+    request: Request,
     file: Annotated[UploadFile, File()],
     name: Annotated[str | None, Form(max_length=255)] = None,
 ) -> DocumentUploadResponse:
+    await rate_limiter.check(
+        action="upload",
+        identities=[client_ip(request), str(user.id)],
+        limit=settings.upload_rate_limit_per_hour,
+        window_seconds=3600,
+    )
     return await document_service.upload_document(session, user.id, file, name)
 
 

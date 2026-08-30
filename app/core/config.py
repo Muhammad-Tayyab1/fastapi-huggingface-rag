@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     debug: bool = False
     database_url: str = "postgresql+asyncpg://rag:rag@localhost:5432/ragdb"
     redis_url: str = "redis://localhost:6379/0"
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
+    sentry_dsn: SecretStr = SecretStr("")
+    sentry_traces_sample_rate: float = Field(default=0, ge=0, le=1)
 
     jwt_secret: SecretStr = SecretStr("change-me")
     jwt_algorithm: str = "HS256"
@@ -36,6 +39,10 @@ class Settings(BaseSettings):
     rag_max_context_chars: int = Field(default=12000, ge=1000, le=100000)
     rag_max_output_tokens: int = Field(default=700, ge=1, le=4096)
     rag_temperature: float = Field(default=0.1, ge=0, le=2)
+    register_rate_limit_per_hour: int = Field(default=5, ge=1)
+    login_rate_limit_per_15_min: int = Field(default=10, ge=1)
+    rag_rate_limit_per_min: int = Field(default=30, ge=1)
+    upload_rate_limit_per_hour: int = Field(default=20, ge=1)
     max_upload_mb: int = Field(default=20, ge=1, le=200)
 
     storage_backend: Literal["local", "s3"] = "local"
