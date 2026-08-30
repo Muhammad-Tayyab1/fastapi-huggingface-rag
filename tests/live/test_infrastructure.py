@@ -2,6 +2,8 @@ import os
 from uuid import uuid4
 
 import pytest
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 from fastapi import status
 from sqlalchemy import text
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -39,13 +41,14 @@ async def clean_database():
 
 
 async def test_migrations_vector_extension_and_dependencies() -> None:
+    expected_revision = ScriptDirectory.from_config(Config("alembic.ini")).get_current_head()
     async with engine.connect() as connection:
         extension = await connection.scalar(
             text("SELECT extversion FROM pg_extension WHERE extname = 'vector'")
         )
         revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
     assert extension
-    assert revision == "0002"
+    assert revision == expected_revision
     result = await readiness()
     assert result.status == "ready"
     assert result.database is True

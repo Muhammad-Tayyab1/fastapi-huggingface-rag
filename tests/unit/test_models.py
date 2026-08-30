@@ -1,6 +1,7 @@
 from sqlmodel import SQLModel
 
 from app.models import (  # noqa: F401
+    AnswerFeedback,
     Conversation,
     Document,
     DocumentChunk,
@@ -18,6 +19,7 @@ def test_expected_tables_are_registered() -> None:
         "ingestion_jobs",
         "conversations",
         "messages",
+        "answer_feedback",
     }
 
 
