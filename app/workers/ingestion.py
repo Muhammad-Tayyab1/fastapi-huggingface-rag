@@ -1,5 +1,4 @@
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 from uuid import UUID
 
@@ -12,14 +11,7 @@ from app.repositories.documents import DocumentRepository
 from app.services.chunking_service import chunk_pages
 from app.services.embedding_service import embed_texts
 from app.services.extraction_service import extract
-
-
-def _storage_path(storage_key: str) -> Path:
-    root = settings.local_storage_path.resolve()
-    path = (root / storage_key).resolve()
-    if not path.is_relative_to(root):
-        raise ValueError("Invalid storage key")
-    return path
+from app.services.storage_service import get_storage_service
 
 
 async def process_document(_: dict[str, Any], document_id: str, job_id: str) -> dict[str, int]:
@@ -38,7 +30,8 @@ async def process_document(_: dict[str, Any], document_id: str, job_id: str) -> 
             session.add(job)
             await session.commit()
 
-            pages = await extract(_storage_path(document.storage_key), document.content_type)
+            async with get_storage_service().materialize(document.storage_key) as path:
+                pages = await extract(path, document.content_type)
             if not pages:
                 raise ValueError("No extractable text found; scanned PDFs require OCR")
             job.progress = 40

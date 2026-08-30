@@ -18,6 +18,7 @@ A multi-user Retrieval-Augmented Generation API built with FastAPI, PostgreSQL/p
 - JWT registration, login, refresh, and profile endpoints
 - Repository and service boundaries for user authentication
 - Authenticated PDF, DOCX, and TXT uploads with content validation
+- Pluggable local or S3-compatible document storage
 - User-owned document listing, status, deletion, and reprocessing jobs
 - ARQ/Redis background ingestion with idempotent chunk replacement
 - PDF, DOCX, and TXT extraction, normalization, and deterministic chunking
@@ -97,7 +98,7 @@ Retrieval always filters both chunks and joined documents by the authenticated u
 
 Both regular and streaming RAG queries accept an optional `conversation_id`. If omitted, the API creates a conversation automatically. Recent user/assistant messages are added to the generation prompt, and completed exchanges are persisted atomically. Streaming emits `sources`, repeated `token`, and final `done` SSE events.
 
-Uploads create an ingestion job and enqueue it in Redis. The worker extracts and normalizes text, replaces existing chunks idempotently, records page/chunk metadata, requests embeddings from Hugging Face in configurable batches, and promotes the document from `extracted` to `ready`. Provider timeouts are retried with exponential backoff, and unexpected embedding dimensions fail the job safely.
+Uploads create an ingestion job and enqueue it in Redis. The worker materializes the file from the configured storage backend, extracts and normalizes text, replaces existing chunks idempotently, records page/chunk metadata, requests embeddings from Hugging Face in configurable batches, and promotes the document from `extracted` to `ready`. Provider timeouts are retried with exponential backoff, and unexpected embedding dimensions fail the job safely.
 
 ## Structure
 
@@ -119,6 +120,8 @@ tests/integration/     # API and infrastructure tests
 ## Configuration
 
 Copy `.env.example` and set a secure `JWT_SECRET` and `HF_TOKEN`. The embedding dimension must match `HF_EMBEDDING_MODEL`; changing it requires a database migration because pgvector dimensions are part of the column type.
+
+Local storage is the development default. For AWS S3, Cloudflare R2, MinIO, or another S3-compatible provider, set `STORAGE_BACKEND=s3`, `S3_BUCKET`, and the provider region. Set `S3_ENDPOINT_URL` for non-AWS providers. Static access keys are optional because boto3 also supports its standard IAM role and credential chain. `S3_PREFIX` isolates this application's objects inside a bucket. The API validates uploads before transfer, and workers download objects into short-lived temporary directories for extraction.
 
 ## Validation
 

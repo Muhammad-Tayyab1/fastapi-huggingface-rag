@@ -12,3 +12,8 @@ def test_chunk_overlap_must_be_smaller_than_chunk_size() -> None:
 def test_production_rejects_default_jwt_secret() -> None:
     with pytest.raises(ValidationError):
         Settings(app_env="production", jwt_secret="change-me")
+
+
+def test_s3_storage_requires_bucket() -> None:
+    with pytest.raises(ValidationError, match="S3_BUCKET"):
+        Settings(storage_backend="s3", s3_bucket="")

@@ -47,6 +47,12 @@ class Settings(BaseSettings):
 
     storage_backend: Literal["local", "s3"] = "local"
     local_storage_path: Path = Path("storage")
+    s3_bucket: str = ""
+    s3_region: str = "us-east-1"
+    s3_endpoint_url: str = ""
+    s3_access_key_id: SecretStr = SecretStr("")
+    s3_secret_access_key: SecretStr = SecretStr("")
+    s3_prefix: str = "documents"
     cors_origins: list[str] = ["http://localhost:3000"]
 
     @model_validator(mode="after")
@@ -57,6 +63,8 @@ class Settings(BaseSettings):
             raise ValueError("JWT_SECRET must be configured in production")
         if self.app_env == "production" and not self.hf_token.get_secret_value():
             raise ValueError("HF_TOKEN must be configured in production")
+        if self.storage_backend == "s3" and not self.s3_bucket:
+            raise ValueError("S3_BUCKET must be configured when STORAGE_BACKEND=s3")
         return self
 
 
