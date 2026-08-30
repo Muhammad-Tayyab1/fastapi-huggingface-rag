@@ -1,0 +1,2 @@
+{"id":"refund-policy","question":"How long do I have to request a refund?","expected_answer_terms":["30 days"],"expected_document_names":["refund-policy.txt"],"expected_grounded":true}
+{"id":"unknown-policy","question":"What is the office dress code?","expected_answer_terms":["do not contain enough information"],"expected_document_names":[],"expected_grounded":false}
