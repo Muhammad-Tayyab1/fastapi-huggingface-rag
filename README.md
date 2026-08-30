@@ -26,6 +26,7 @@ A multi-user Retrieval-Augmented Generation API built with FastAPI, PostgreSQL/p
 - Batched Hugging Face embeddings with retries and strict dimension validation
 - Unit-normalized pgvector values and `ready` document promotion
 - Ownership-filtered pgvector cosine retrieval
+- Hybrid semantic and PostgreSQL full-text retrieval with reciprocal-rank fusion
 - Grounded Hugging Face answers with page-level source citations
 - User-owned conversation history with persisted questions, answers, and citations
 - User-owned answer feedback with aggregate quality metrics
@@ -98,7 +99,7 @@ API-key management requires a JWT access token. The plaintext key is returned on
 | `POST` | `/api/v1/rag/query` | Generate a grounded answer with document/page citations |
 | `POST` | `/api/v1/rag/query/stream` | Stream sources, answer tokens, and completion metadata over SSE |
 
-Retrieval always filters both chunks and joined documents by the authenticated user's ID, optionally narrows the search to selected document IDs, excludes unembedded chunks, and only searches documents in the `ready` state. When no result meets the configured similarity threshold, the API returns a deterministic no-context response without calling the language model.
+Retrieval always filters both chunks and joined documents by the authenticated user's ID, optionally narrows the search to selected document IDs, and only searches documents in the `ready` state. Hybrid mode combines embedding similarity and PostgreSQL English full-text search through weighted reciprocal-rank fusion, allowing exact names and terminology to complement semantic matches. Set `RETRIEVAL_MODE=semantic` to use vector-only retrieval. `HYBRID_SEMANTIC_WEIGHT`, `HYBRID_CANDIDATE_MULTIPLIER`, and `HYBRID_RRF_K` tune fusion behavior. When neither path returns context, the API returns a deterministic no-context response without calling the language model.
 
 ## Conversation endpoints
 
