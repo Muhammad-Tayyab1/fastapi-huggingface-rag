@@ -7,6 +7,7 @@ from huggingface_hub import AsyncInferenceClient
 from huggingface_hub.errors import HfHubHTTPError, InferenceTimeoutError
 
 from app.core.config import settings
+from app.core.metrics import PROVIDER_REQUESTS
 
 Sleep = Callable[[float], Awaitable[None]]
 
@@ -44,8 +45,10 @@ class EmbeddingService:
                     truncate=True,
                 )
                 values = result.tolist() if hasattr(result, "tolist") else result
+                PROVIDER_REQUESTS.labels("embedding", "success").inc()
                 return [[float(value) for value in vector] for vector in values]
             except (HfHubHTTPError, InferenceTimeoutError) as exc:
+                PROVIDER_REQUESTS.labels("embedding", "error").inc()
                 if attempt == self.max_retries:
                     raise RuntimeError("Hugging Face embedding request failed") from exc
                 await self.sleep(2 ** (attempt - 1))

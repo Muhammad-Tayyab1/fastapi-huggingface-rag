@@ -23,3 +23,14 @@ def test_render_postgres_url_uses_asyncpg_driver() -> None:
     configured = Settings(database_url="postgresql://user:secret@database/rag")
 
     assert configured.database_url == "postgresql+asyncpg://user:secret@database/rag"
+
+
+def test_production_metrics_require_scrape_token() -> None:
+    with pytest.raises(ValidationError, match="METRICS_BEARER_TOKEN"):
+        Settings(
+            app_env="production",
+            jwt_secret="secure",
+            hf_token="hf_test",
+            metrics_enabled=True,
+            metrics_bearer_token="",
+        )

@@ -1,3 +1,4 @@
+import time
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
@@ -6,6 +7,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
 from app.core.db import engine
+from app.core.metrics import INGESTION_DURATION, INGESTION_JOBS
 from app.models.document import Document, DocumentChunk, IngestionJob
 from app.repositories.documents import DocumentRepository
 from app.services.chunking_service import chunk_pages
@@ -16,6 +18,7 @@ from app.services.storage_service import get_storage_service
 
 
 async def process_document(_: dict[str, Any], document_id: str, job_id: str) -> dict[str, int]:
+    started = time.perf_counter()
     async with AsyncSession(engine, expire_on_commit=False) as session:
         document = await session.get(Document, UUID(document_id))
         job = await session.get(IngestionJob, UUID(job_id))
@@ -79,6 +82,7 @@ async def process_document(_: dict[str, Any], document_id: str, job_id: str) -> 
             session.add(document)
             session.add(job)
             await session.commit()
+            INGESTION_JOBS.labels("completed").inc()
             return {"pages": len(pages), "chunks": len(chunks), "embeddings": len(embeddings)}
         except Exception as exc:
             await session.rollback()
@@ -90,4 +94,7 @@ async def process_document(_: dict[str, Any], document_id: str, job_id: str) -> 
             session.add(document)
             session.add(job)
             await session.commit()
+            INGESTION_JOBS.labels("failed").inc()
             raise
+        finally:
+            INGESTION_DURATION.observe(time.perf_counter() - started)

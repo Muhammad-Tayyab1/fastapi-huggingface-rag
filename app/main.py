@@ -3,19 +3,22 @@ import re
 import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from hmac import compare_digest
 from uuid import uuid4
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.db import close_db
 from app.core.exceptions import AppError, app_error_handler
 from app.core.logging import configure_logging
+from app.core.metrics import ARQ_QUEUE_DEPTH, HTTP_DURATION, HTTP_REQUESTS, QUEUE_SCRAPE_FAILURES
 from app.core.monitoring import init_monitoring
-from app.core.redis import close_redis
+from app.core.redis import close_redis, redis_client
 from app.core.request_context import request_id_context
 
 logger = logging.getLogger("app.access")
@@ -34,7 +37,12 @@ async def request_context_middleware(request: Request, call_next):
         response.headers["X-Request-ID"] = request_id
         return response
     finally:
-        duration = round((time.perf_counter() - started) * 1000, 3)
+        elapsed = time.perf_counter() - started
+        duration = round(elapsed * 1000, 3)
+        route = getattr(request.scope.get("route"), "path", "unmatched")
+        if request.url.path != "/metrics":
+            HTTP_REQUESTS.labels(request.method, route, str(status_code)).inc()
+            HTTP_DURATION.labels(request.method, route).observe(elapsed)
         logger.info(
             "request completed",
             extra={
@@ -90,6 +98,22 @@ def create_app() -> FastAPI:
     application.middleware("http")(request_context_middleware)
     application.add_exception_handler(AppError, app_error_handler)
     application.add_exception_handler(Exception, unhandled_error_handler)
+
+    @application.get("/metrics", include_in_schema=False)
+    async def metrics(request: Request) -> Response:
+        if not settings.metrics_enabled:
+            return Response(status_code=status.HTTP_404_NOT_FOUND)
+        expected = settings.metrics_bearer_token.get_secret_value()
+        supplied = request.headers.get("Authorization", "").removeprefix("Bearer ")
+        if expected and not compare_digest(supplied, expected):
+            return Response(status_code=status.HTTP_401_UNAUTHORIZED)
+        try:
+            ARQ_QUEUE_DEPTH.set(await redis_client.zcard(settings.arq_queue_name))
+        except Exception:
+            QUEUE_SCRAPE_FAILURES.inc()
+            ARQ_QUEUE_DEPTH.set(float("nan"))
+        return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
     return application
 
 
