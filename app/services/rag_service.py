@@ -7,6 +7,7 @@ from xml.sax.saxutils import escape, quoteattr
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
+from app.core.metrics import RAG_QUERIES
 from app.models.conversation import Conversation
 from app.repositories.chunks import ChunkRepository, RetrievedChunk
 from app.repositories.conversations import ConversationRepository
@@ -161,6 +162,7 @@ async def query(
             request.question, build_context(prepared.results), prepared.history
         )
         grounded = True
+    RAG_QUERIES.labels("sync", "grounded" if grounded else "no_context").inc()
     await ConversationRepository(session).save_exchange(
         prepared.conversation,
         request.question,
@@ -183,6 +185,7 @@ async def stream_prepared(
 ) -> AsyncIterator[str]:
     if not prepared.results:
         answer = NO_CONTEXT_ANSWER
+        RAG_QUERIES.labels("stream", "no_context").inc()
         yield answer
     else:
         generator = llm_service or LLMService()
@@ -195,6 +198,7 @@ async def stream_prepared(
             tokens.append(token)
             yield token
         answer = "".join(tokens)
+        RAG_QUERIES.labels("stream", "grounded").inc()
     await ConversationRepository(session).save_exchange(
         prepared.conversation,
         prepared.request.question,
