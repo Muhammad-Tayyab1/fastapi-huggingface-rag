@@ -28,6 +28,7 @@ A multi-user Retrieval-Augmented Generation API built with FastAPI, PostgreSQL/p
 - Grounded Hugging Face answers with page-level source citations
 - User-owned conversation history with persisted questions, answers, and citations
 - User-owned answer feedback with aggregate quality metrics
+- Repeatable JSONL RAG quality evaluations with CI-friendly pass thresholds
 - True token streaming through Server-Sent Events
 - Redis-backed distributed rate limiting with hashed identity keys
 - Request IDs, structured JSON access logs, and optional Sentry monitoring
@@ -144,6 +145,18 @@ uv run pytest -q
 uv run alembic upgrade head --sql
 ```
 
+### RAG quality evaluation
+
+Copy [`evals/example.jsonl`](evals/example.jsonl) and replace its questions, expected answer terms, expected source document names, and optional document IDs with a dataset matching files uploaded by the evaluation user. Run the authenticated API evaluation with:
+
+```bash
+RAG_API_TOKEN=your-access-token uv run python -m scripts.evaluate_rag evals/your-dataset.jsonl \
+  --base-url http://127.0.0.1:8000 \
+  --output reports/rag-evaluation.json
+```
+
+The command measures mean expected-term recall, expected-source recall, and grounded/not-grounded classification accuracy. It exits nonzero when a configured threshold fails, making it suitable for a controlled CI or pre-release environment. Evaluation calls create normal conversation history and use Hugging Face inference, so run them with a dedicated account and account for provider usage.
+
 Live Hugging Face calls will be isolated behind async service interfaces and mocked in CI so tests remain deterministic and do not incur inference charges.
 
 ## Production operations
@@ -169,7 +182,7 @@ Docker Compose includes a one-shot `migrate` service, and the API and worker wai
 The standard test suite mocks paid inference calls. To validate a real Hugging Face account and configured models explicitly:
 
 ```bash
-HF_TOKEN=hf_xxx uv run python scripts/validate_huggingface.py
+HF_TOKEN=hf_xxx uv run python -m scripts.validate_huggingface
 ```
 
 This command performs one embedding request and one small chat-completion request and may consume provider credits. Infrastructure tests are guarded to prevent accidental execution against a non-test database; GitHub Actions runs them with dedicated ephemeral PostgreSQL/pgvector and Redis services.
