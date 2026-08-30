@@ -47,8 +47,16 @@ async def test_migrations_vector_extension_and_dependencies() -> None:
             text("SELECT extversion FROM pg_extension WHERE extname = 'vector'")
         )
         revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
+        fts_index = await connection.scalar(
+            text(
+                "SELECT indexname FROM pg_indexes "
+                "WHERE tablename = 'document_chunks' "
+                "AND indexname = 'ix_document_chunks_content_fts'"
+            )
+        )
     assert extension
     assert revision == expected_revision
+    assert fts_index == "ix_document_chunks_content_fts"
     result = await readiness()
     assert result.status == "ready"
     assert result.database is True
@@ -97,21 +105,34 @@ async def test_pgvector_search_isolated_by_user() -> None:
             DocumentChunk(
                 document_id=second_document.id,
                 user_id=second_user.id,
-                content="Must never leak to the first user",
+                content="Must never leak secretkeyword to the first user",
                 embedding=vector,
                 chunk_index=0,
+            )
+        )
+        session.add(
+            DocumentChunk(
+                document_id=first_document.id,
+                user_id=first_user.id,
+                content="Owned lexical match for secretkeyword",
+                embedding=[0.0, 1.0] + [0.0] * 1022,
+                chunk_index=1,
             )
         )
         await session.commit()
         results = await ChunkRepository(session).similarity_search(
             user_id=first_user.id,
+            query_text="secretkeyword",
             query_embedding=vector,
             document_ids=None,
-            top_k=5,
-            min_score=0.5,
+            top_k=2,
+            min_score=0.9,
         )
-    assert [result.chunk.content for result in results] == ["Visible to the first user"]
-    assert results[0].score == pytest.approx(1.0)
+    assert {result.chunk.content for result in results} == {
+        "Visible to the first user",
+        "Owned lexical match for secretkeyword",
+    }
+    assert all("Must never leak" not in result.chunk.content for result in results)
 
 
 async def test_real_redis_rate_limit() -> None:
