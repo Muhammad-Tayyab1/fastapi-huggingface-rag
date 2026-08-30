@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import Column, DateTime, ForeignKey, String, Text, Uuid
+from sqlalchemy import JSON, Column, DateTime, ForeignKey, String, Text, Uuid
 from sqlmodel import Field, SQLModel
 
 from app.models.base import utcnow
@@ -34,6 +34,9 @@ class ApiKey(SQLModel, table=True):
         )
     )
     name: str = Field(max_length=100)
+    scopes: list[str] = Field(
+        default_factory=lambda: ["read", "write"], sa_column=Column(JSON, nullable=False)
+    )
     key_prefix: str = Field(sa_column=Column(String(32), unique=True, index=True, nullable=False))
     key_hash: str = Field(sa_column=Column(Text, unique=True, nullable=False))
     last_used_at: datetime | None = Field(
