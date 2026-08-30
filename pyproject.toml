@@ -38,6 +38,7 @@ dev = [
 asyncio_mode = "auto"
 pythonpath = ["."]
 testpaths = ["tests"]
+markers = ["live: requires live PostgreSQL/pgvector and Redis services"]
 
 [tool.ruff]
 line-length = 100
