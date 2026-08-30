@@ -21,6 +21,13 @@ def mock_ingestion_queue(monkeypatch) -> AsyncMock:
     return mocked
 
 
+@pytest.fixture(autouse=True)
+def mock_rate_limits(monkeypatch) -> AsyncMock:
+    mocked = AsyncMock()
+    monkeypatch.setattr("app.core.rate_limit.rate_limiter.check", mocked)
+    return mocked
+
+
 @pytest.fixture
 async def session(tmp_path) -> AsyncGenerator[AsyncSession, None]:
     engine = create_async_engine("sqlite+aiosqlite://")

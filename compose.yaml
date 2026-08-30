@@ -8,6 +8,8 @@ services:
       REDIS_URL: redis://redis:6379/0
     ports:
       - "8000:8000"
+    init: true
+    restart: unless-stopped
     volumes:
       - document_storage:/app/storage
     depends_on:
@@ -25,6 +27,8 @@ services:
       REDIS_URL: redis://redis:6379/0
     volumes:
       - document_storage:/app/storage
+    init: true
+    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
